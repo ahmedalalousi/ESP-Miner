@@ -153,6 +153,10 @@ export class VoltageMonitorComponent implements OnInit, OnDestroy {
     if (!this.voltageStatus || !this.systemInfo) {
       return;
     }
+		
+		// Clear tree cache to force rebuild on next access
+		// Ended up taking it out, as it's destroying the collapsed state
+		// this.treeData = [];
 
     // Calculate per-ASIC values from system totals
     const totalAsics = this.voltageStatus.chains?.reduce((sum, chain) => sum + chain.asics.length, 0) || 1;
@@ -220,7 +224,7 @@ export class VoltageMonitorComponent implements OnInit, OnDestroy {
       chains
     };
   }
-getTreeData(): any[] {
+/* getTreeData(): any[] {
   // Only rebuild if we don't have cached data
   if (this.treeData.length === 0 && this.combinedData && this.combinedData.chains) {
     console.log('Building tree data...');
@@ -314,5 +318,165 @@ getTreeData(): any[] {
     }];
   }
   return this.treeData;
+} */
+
+private updateTreeDataInPlace(): void {
+  if (!this.treeData.length || !this.combinedData) {
+    return;
+  }
+
+  const rootNode = this.treeData[0];
+  if (!rootNode || !rootNode.children) {
+    return;
+  }
+
+  // Update each chain
+  this.combinedData.chains.forEach((chain, chainIndex) => {
+    const chainNode = rootNode.children[chainIndex];
+    if (!chainNode) return;
+
+    // Update chain label if needed
+    chainNode.label = `Chain ${chain.chain_id}`;
+
+    // Update statistics
+    const statsNode = chainNode.children?.find((n: any) => n.label === 'Statistics');
+    if (statsNode && statsNode.children) {
+      statsNode.children[0].label = `Average Voltage: ${chain.average_voltage.toFixed(2)}V`;
+      statsNode.children[1].label = `Total Hashrate: ${(chain.total_hashrate / 1000).toFixed(2)} TH/s`;
+      statsNode.children[2].label = `Healthy ASICs: ${chain.healthy_asics}`;
+      statsNode.children[3].label = `Degraded ASICs: ${chain.degraded_asics}`;
+      statsNode.children[4].label = `Failed ASICs: ${chain.failed_asics}`;
+    }
+
+    // Update ASICs
+    const asicsNode = chainNode.children?.find((n: any) => n.label?.startsWith('ASICs'));
+    if (asicsNode) {
+      asicsNode.label = `ASICs (${chain.asics.length})`;
+
+      // Update each ASIC
+      chain.asics.forEach((asic, asicIndex) => {
+        const asicNode = asicsNode.children?.[asicIndex];
+        if (asicNode) {
+          // Update ASIC properties
+          asicNode.styleClass = asic.status === 'healthy' ? 'text-green-600' :
+                               asic.status === 'degraded' ? 'text-orange-600' :
+                               'text-red-600';
+          asicNode.icon = asic.status === 'healthy' ? 'pi pi-check' :
+                         asic.status === 'degraded' ? 'pi pi-exclamation-triangle' :
+                         'pi pi-times';
+
+          // Update child values
+          if (asicNode.children) {
+            asicNode.children[0].label = `Voltage: ${asic.voltage.toFixed(3)}V`;
+            asicNode.children[1].label = `Frequency: ${asic.frequency} MHz`;
+            asicNode.children[2].label = `Hashrate: ${asic.hashrate.toFixed(1)} GH/s`;
+            asicNode.children[3].label = `Status: ${asic.status}`;
+            asicNode.children[3].styleClass = asicNode.styleClass;
+          }
+        }
+      });
+    }
+  });
 }
+
+getTreeData(): any[] {
+  // Build tree only if empty
+  if (this.treeData.length === 0 && this.combinedData && this.combinedData.chains) {
+    console.log('Building tree data...');
+    this.treeData = [{
+      label: 'All Chains',
+      expanded: true,
+      expandedIcon: 'pi pi-folder-open',
+      collapsedIcon: 'pi pi-folder',
+      children: this.combinedData.chains.map(chain => ({
+        label: `Chain ${chain.chain_id}`,
+        expanded: false,
+        expandedIcon: 'pi pi-folder-open',
+        collapsedIcon: 'pi pi-folder',
+        children: [
+          {
+            label: 'Statistics',
+            icon: 'pi pi-chart-bar',
+            expanded: false,
+            children: [
+              {
+                label: `Average Voltage: ${chain.average_voltage.toFixed(2)}V`,
+                icon: 'pi pi-bolt',
+                leaf: true
+              },
+              {
+                label: `Total Hashrate: ${(chain.total_hashrate / 1000).toFixed(2)} TH/s`,
+                icon: 'pi pi-server',
+                leaf: true
+              },
+              {
+                label: `Healthy ASICs: ${chain.healthy_asics}`,
+                icon: 'pi pi-check-circle',
+                styleClass: 'text-green-600',
+                leaf: true
+              },
+              {
+                label: `Degraded ASICs: ${chain.degraded_asics}`,
+                icon: 'pi pi-exclamation-circle',
+                styleClass: 'text-orange-600',
+                leaf: true
+              },
+              {
+                label: `Failed ASICs: ${chain.failed_asics}`,
+                icon: 'pi pi-times-circle',
+                styleClass: 'text-red-600',
+                leaf: true
+              }
+            ]
+          },
+          {
+            label: `ASICs (${chain.asics.length})`,
+            icon: 'pi pi-microchip',
+            expanded: false,
+            children: chain.asics.map(asic => ({
+              label: `ASIC ${asic.id}`,
+              expanded: false,
+              icon: asic.status === 'healthy' ? 'pi pi-check' :
+                    asic.status === 'degraded' ? 'pi pi-exclamation-triangle' :
+                    'pi pi-times',
+              styleClass: asic.status === 'healthy' ? 'text-green-600' :
+                         asic.status === 'degraded' ? 'text-orange-600' :
+                         'text-red-600',
+              children: [
+                {
+                  label: `Voltage: ${asic.voltage.toFixed(3)}V`,
+                  icon: 'pi pi-bolt',
+                  leaf: true
+                },
+                {
+                  label: `Frequency: ${asic.frequency} MHz`,
+                  icon: 'pi pi-chart-line',
+                  leaf: true
+                },
+                {
+                  label: `Hashrate: ${asic.hashrate.toFixed(1)} GH/s`,
+                  icon: 'pi pi-server',
+                  leaf: true
+                },
+                {
+                  label: `Status: ${asic.status}`,
+                  styleClass: asic.status === 'healthy' ? 'text-green-600' :
+                             asic.status === 'degraded' ? 'text-orange-600' :
+                             'text-red-600',
+                  leaf: true
+                }
+              ]
+            }))
+          }
+        ]
+      }))
+    }];
+  } else if (this.treeData.length > 0) {
+    // Update existing tree
+    this.updateTreeDataInPlace();
+  }
+
+  return this.treeData;
+}
+
 }
