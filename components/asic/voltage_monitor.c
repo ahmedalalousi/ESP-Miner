@@ -8,6 +8,8 @@
 #include "freertos/semphr.h"
 #include "cJSON.h"
 #include "esp_timer.h"
+#include <string.h>
+#include <inttypes.h>
 
 static const char *TAG = "voltage_monitor";
 
@@ -339,6 +341,8 @@ char* voltage_monitor_get_json_status(void) {
 void voltage_monitor_set_scan_interval(uint32_t interval_ms) {
     if (interval_ms >= 100 && interval_ms <= 60000) {
         g_scan_interval_ms = interval_ms;
-        ESP_LOGI(TAG, "Scan interval set to %d ms", interval_ms);
+        // ESP_LOGI(TAG, "Scan interval set to %d ms", interval_ms);
+	ESP_LOGI(TAG, "Scan interval set to %"PRIu32" ms", interval_ms);
+
     }
 }

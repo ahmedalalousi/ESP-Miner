@@ -17,7 +17,8 @@ static const char *TAG = "asic";
 
 uint8_t ASIC_init(GlobalState * GLOBAL_STATE)
 {
-    ESP_LOGI(TAG, "Initializing %s", GLOBAL_STATE->DEVICE_CONFIG.family.asic.name);
+    // ESP_LOGI(TAG, "Initializing %s", GLOBAL_STATE->DEVICE_CONFIG.family.asic.name);
+    ESP_LOGI(TAG, "Initialising %s", GLOBAL_STATE->DEVICE_CONFIG.family.asic.name ?: "Unknown ASIC");
 
     switch (GLOBAL_STATE->DEVICE_CONFIG.family.asic.id) {
         case BM1397:
