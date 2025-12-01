@@ -1,0 +1,24 @@
+/* Footer Specific Styles */
+.footer-bg {
+  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+}
+
+.footer-link {
+  @apply text-gray-300 hover:text-white transition-colors duration-200;
+}
+
+.footer-heading {
+  @apply text-white font-semibold text-lg mb-4;
+}
+
+.footer-text {
+  @apply text-gray-300;
+}
+
+.footer-menu-item {
+  @apply text-gray-300 hover:text-primary transition-all duration-200 hover:translate-x-1;
+}
+
+.social-icon {
+  @apply w-10 h-10 rounded-full bg-gray-800 hover:bg-primary flex items-center justify-center transition-all duration-300 hover:scale-110;
+}
