@@ -54,6 +54,38 @@ export class ThemeConfigComponent implements OnInit {
   selectedScheme: string;
   currentColor: string = '';
   themes: ThemeOption[] = [
+	{
+  name: 'Cuneiform',
+  primaryColor: '#092cab',
+  accentColors: {
+    '--primary-color': '#092cab',
+    '--primary-color-text': '#ffffff',
+    '--highlight-bg': '#092cab',
+    '--highlight-text-color': '#ffffff',
+    '--focus-ring': '0 0 0 0.2rem rgba(9,44,171,0.2)',
+    // PrimeNG Slider
+    '--slider-bg': '#dee2e6',
+    '--slider-range-bg': '#092cab',
+    '--slider-handle-bg': '#092cab',
+    // Progress Bar
+    '--progressbar-bg': '#dee2e6',
+    '--progressbar-value-bg': '#092cab',
+    // PrimeNG Checkbox
+    '--checkbox-border': '#092cab',
+    '--checkbox-bg': '#092cab',
+    '--checkbox-hover-bg': '#0a3edb',
+    // PrimeNG Button
+    '--button-bg': '#092cab',
+    '--button-hover-bg': '#0a3edb',
+    '--button-focus-shadow': '0 0 0 2px #ffffff, 0 0 0 4px #092cab',
+    // Toggle button
+    '--togglebutton-bg': '#092cab',
+    '--togglebutton-border': '1px solid #092cab',
+    '--togglebutton-hover-bg': '#0a3edb',
+    '--togglebutton-hover-border': '1px solid #0a3edb',
+    '--togglebutton-text-color': '#ffffff'
+  }
+},
     {
       name: 'Orange',
       primaryColor: '#F7931A',

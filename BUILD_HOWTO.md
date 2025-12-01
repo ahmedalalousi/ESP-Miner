@@ -10,6 +10,7 @@ Complete guide for building and flashing ESP-Miner firmware for Bitaxe hardware.
 - Python 3.12 or 3.13 (via pyenv)
 - ESP-IDF v5.3
 - Git
+- Node.js and npm (for web UI development)
 
 ### Hardware
 - ESP32-S3-WROOM-1-N16R8 (16MB Flash, 8MB PSRAM)
@@ -25,7 +26,7 @@ Complete guide for building and flashing ESP-Miner firmware for Bitaxe hardware.
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
 # Install required packages
-brew install cmake ninja python3 git wget
+brew install cmake ninja python3 git wget node
 ```
 
 ### 2. Install pyenv and Python
@@ -42,6 +43,7 @@ pyenv global 3.13.3
 echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.bash_profile
 echo 'command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.bash_profile
 echo 'eval "$(pyenv init -)"' >> ~/.bash_profile
+echo 'eval "$(pyenv virtualenv-init -)"' >> ~/.bash_profile
 ```
 
 ### 3. Fix SSL Certificate Issues
@@ -141,7 +143,7 @@ ESP_LOGI(TAG, "Scan interval set to %d ms", interval_ms);
 ESP_LOGI(TAG, "Scan interval set to %"PRIu32" ms", interval_ms);
 ```
 
-#### Fix C: Fix NULL pointer in ASIC initialization
+#### Fix C: Fix NULL pointer in ASIC initialisation
 
 Edit `components/asic/asic.c` (around line 20):
 
@@ -164,21 +166,41 @@ idf.py menuconfig
 ```
 
 Verify these settings:
-- **Component config** → **ESP PSRAM** → **Type of SPIRAM chip**: ESP-PSRAM64
+- **Component config** → **ESP PSRAM** → **Type of SPIRAM chip**: ESP-PSRAM64 (not Auto-detect)
 - **Component config** → **ESP PSRAM** → **Mode**: Octal Mode
 - **Serial flasher config** → **Flash size**: 16MB
 
 ### 4. Build the Firmware
 
+#### Method 1: Using the Build Script (Recommended)
+
+```bash
+# Clean, build, and flash
+./build.sh -c -f -m
+
+# Or just build
+./build.sh
+
+# Build and flash to specific port
+./build.sh -f -p /dev/cu.usbmodem141201
+```
+
+#### Method 2: Manual Build Steps
+
 ```bash
 # Clean previous builds
 idf.py fullclean
 
-# Build with specific config (for Bitaxe 401/Supra)
-idf.py -D SDKCONFIG_DEFAULTS=config-401.cvs build
+# Build
+idf.py build
 
 # Create merged binary
-idf.py merge-bin
+./merge_bin.sh build/esp-miner-merged.bin
+
+# Flash
+bitaxetool --port /dev/cu.usbmodem141201 \
+           --config ./config.cvs \
+           --firmware ./build/esp-miner-merged.bin
 ```
 
 The merged binary will be at: `build/esp-miner-merged.bin`
@@ -187,13 +209,15 @@ The merged binary will be at: `build/esp-miner-merged.bin`
 
 ### 1. Find the Correct Serial Port
 
+The ESP32-S3-WROOM-1 with USB-JTAG typically appears as:
+
 ```bash
 # List all serial ports
 ls -la /dev/cu.*
 
-# Look for USB serial port, typically:
-# /dev/cu.usbmodem141201  (USB-JTAG mode)
-# or similar
+# Common port names:
+# /dev/cu.usbmodem141201  (USB-JTAG mode - most common)
+# /dev/cu.usbmodem*       (other USB-JTAG variants)
 ```
 
 ### 2. Create Configuration File
@@ -221,10 +245,13 @@ asicmodel,data,string,BM1368
 ### 3. Flash Using bitaxetool
 
 ```bash
-# Install bitaxetool if not already installed
-pip3 install bitaxetool
+# Using build script (auto-detects port)
+./build.sh -f
 
-# Flash firmware and config
+# Or specify port manually
+./build.sh -f -p /dev/cu.usbmodem141201
+
+# Or use bitaxetool directly
 bitaxetool --port /dev/cu.usbmodem141201 \
            --config ./config.cvs \
            --firmware ./build/esp-miner-merged.bin
@@ -233,13 +260,52 @@ bitaxetool --port /dev/cu.usbmodem141201 \
 ### 4. Monitor Serial Output
 
 ```bash
-# Using idf.py
+# Using build script
+./build.sh -f -m
+
+# Or using idf.py
 idf.py -p /dev/cu.usbmodem141201 monitor
 
 # Or using screen
 screen /dev/cu.usbmodem141201 115200
 # Exit screen: Ctrl+A then K
 ```
+
+## Web UI Development
+
+If you're modifying the web interface (AxeOS):
+
+### 1. Navigate to Web UI Directory
+
+```bash
+cd main/http_server/axe-os
+```
+
+### 2. Install Dependencies (First Time Only)
+
+```bash
+npm install
+```
+
+### 3. Build Web UI
+
+```bash
+# Build for production (optimised)
+npm run build
+
+# This creates compressed files in dist/axe-os/
+```
+
+### 4. Build Complete Firmware
+
+After building the web UI, return to project root and build firmware:
+
+```bash
+cd ../../..  # Back to ESP-Miner root
+./build.sh -f
+```
+
+The firmware build will automatically include the compiled web UI.
 
 ## Troubleshooting
 
@@ -254,16 +320,13 @@ If you see "waiting for download" in the serial monitor:
 
 ### Flash Fails with Timeout/Checksum Errors
 
-1. Try a different USB cable
+1. Try a different USB cable (must be data capable)
 2. Try a different USB port (prefer USB 2.0 ports)
-3. Lower baud rate:
-
-```bash
-esptool.py --chip esp32s3 \
-  --port /dev/cu.usbmodem141201 \
-  --baud 115200 \
-  write_flash --flash_size 16MB 0x0 build/esp-miner-merged.bin
-```
+3. Try manual reset:
+   - Hold BOOT button
+   - Press and release RESET while holding BOOT
+   - Release BOOT
+   - Immediately flash
 
 ### Build Fails with Missing Components
 
@@ -290,6 +353,34 @@ cd ~/esp/esp-idf
 . ./export.sh
 ```
 
+### Web UI Build Fails
+
+```bash
+cd main/http_server/axe-os
+
+# Clear node modules and reinstall
+rm -rf node_modules package-lock.json
+npm install
+
+# Try build again
+npm run build
+```
+
+### merge_bin.sh Not Found
+
+If the build script can't find `merge_bin.sh`:
+
+```bash
+# Check if it exists
+ls -la merge_bin.sh
+
+# Make it executable if needed
+chmod +x merge_bin.sh
+
+# Or use idf.py directly
+idf.py merge-bin
+```
+
 ## Post-Flash
 
 1. The device will reboot and connect to WiFi
@@ -305,13 +396,21 @@ cd ~/esp/esp-idf
 # Set up environment (every new terminal)
 cd ~/esp/esp-idf && . ./export.sh
 
-# Build
+# Build with script
+cd ~/Work/ESP-Miner
+./build.sh -c -f -m
+
+# Build web UI only
+cd main/http_server/axe-os
+npm run build
+
+# Manual build steps
 cd ~/Work/ESP-Miner
 idf.py fullclean
 idf.py build
-idf.py merge-bin
+./merge_bin.sh build/esp-miner-merged.bin
 
-# Flash
+# Flash manually
 bitaxetool --port /dev/cu.usbmodem141201 \
            --config ./config.cvs \
            --firmware ./build/esp-miner-merged.bin
@@ -325,12 +424,21 @@ idf.py -p /dev/cu.usbmodem141201 monitor
 - ESP-IDF: `~/esp/esp-idf`
 - ESP-Miner Source: `~/Work/ESP-Miner` (or your path)
 - Built Binary: `~/Work/ESP-Miner/build/esp-miner-merged.bin`
+- Web UI Source: `~/Work/ESP-Miner/main/http_server/axe-os`
+- Web UI Build Output: `~/Work/ESP-Miner/main/http_server/axe-os/dist/axe-os`
 - Python Environments: `~/.espressif/python_env/`
+
+### Serial Port Reference
+
+- **USB-JTAG mode** (most common): `/dev/cu.usbmodem141201` or `/dev/cu.usbmodem*`
+- **UART mode**: `/dev/cu.usbserial*` or `/dev/cu.SLAB_USBtoUART`
 
 ## Notes
 
 - Always use ESP-IDF v5.3 for this project
 - The merged binary is approximately 15MB
-- First boot may take longer due to NVS initialization
+- First boot may take longer due to NVS initialisation
 - PSRAM detection should show "Found 8MB PSRAM device"
+- PSRAM must be explicitly configured as ESP-PSRAM64 (not auto-detect)
 - If thermal sensor fails, device will still work but fan runs at fixed speed
+- Web UI changes require rebuilding both the web UI (`npm run build`) and the firmware (`./build.sh`)
