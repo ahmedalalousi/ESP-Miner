@@ -14,12 +14,12 @@
 
 set -e  # Exit on error
 
-# Colors for output
+# Colours for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m' # No Colour
 
 # Default values
 CLEAN=0
@@ -30,7 +30,7 @@ CONFIG_FILE="./config.cvs"
 IDF_PATH="${HOME}/esp/esp-idf"
 PROJECT_DIR="$(pwd)"
 
-# Function to print colored messages
+# Function to print coloured messages
 print_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
 }
@@ -159,17 +159,31 @@ else
     exit 1
 fi
 
-# Create merged binary
+# Create merged binary using merge_bin.sh script
 print_info "Creating merged binary..."
-if idf.py merge-bin; then
-    print_success "Merged binary created: build/esp-miner-merged.bin"
-    
-    # Show binary size
-    BINARY_SIZE=$(ls -lh build/esp-miner-merged.bin | awk '{print $5}')
-    print_info "Binary size: $BINARY_SIZE"
+if [ -f "./merge_bin.sh" ]; then
+    if ./merge_bin.sh build/esp-miner-merged.bin; then
+        print_success "Merged binary created: build/esp-miner-merged.bin"
+        
+        # Show binary size
+        BINARY_SIZE=$(ls -lh build/esp-miner-merged.bin | awk '{print $5}')
+        print_info "Binary size: $BINARY_SIZE"
+    else
+        print_error "Failed to create merged binary using merge_bin.sh"
+        exit 1
+    fi
 else
-    print_error "Failed to create merged binary"
-    exit 1
+    print_warning "merge_bin.sh not found, trying idf.py merge-bin..."
+    if idf.py merge-bin; then
+        print_success "Merged binary created: build/esp-miner-merged.bin"
+        
+        # Show binary size
+        BINARY_SIZE=$(ls -lh build/esp-miner-merged.bin | awk '{print $5}')
+        print_info "Binary size: $BINARY_SIZE"
+    else
+        print_error "Failed to create merged binary"
+        exit 1
+    fi
 fi
 
 # Flash if requested
@@ -272,6 +286,6 @@ else
     print_info "To flash the firmware, run:"
     echo "  ./build.sh --flash"
     echo "  or"
-    echo "  bitaxetool --port /dev/cu.usbmodemXXXXXX --config config.cvs --firmware build/esp-miner-merged.bin"
+    echo "  bitaxetool --port /dev/cu.usbmodem141201 --config config.cvs --firmware build/esp-miner-merged.bin"
     echo ""
 fi
